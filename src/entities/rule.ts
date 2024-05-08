@@ -49,6 +49,7 @@ export function generateRulesForEditor(groups: any, placementLayers: any): () =>
         // isSmallerThanNeeded(),
         // isCalculatedAreaTooBig(),
         hasLargeEnergyNeed(),
+        fastOverlap(placementLayers, 3, "yo","yooo"),
         // hasMissingFields(),
         // hasManyCoordinates(),
         // isBreakingSoundLimit(groups.soundguide, 2, 'Making too much noise?', 'Seems like you wanna play louder than your neighbors might expect? Check the sound guider layer!'),
@@ -57,7 +58,7 @@ export function generateRulesForEditor(groups: any, placementLayers: any): () =>
         // isOverlappingOrContained(groups.fireroad, 3, 'Touching fireroad!','Plz move this area away from the fire road!'),
         // isNotInsideBoundaries(groups.propertyborder, 3, 'Outside border!','You have placed yourself outside our land, please fix that <3'),
         // isInsideBoundaries(groups.hiddenforbidden, 3, 'Inside forbidden zone!', 'You are inside a zone that can not be used this year.'),
-        // isBufferOverlappingRecursive(placementLayers, 3, 'Too large/close to others!','This area is either in itself too large, or too close to other areas. Make it smaller or move it further away.'),
+        //isBufferOverlappingRecursive(placementLayers, 3, 'Too large/close to others!','This area is either in itself too large, or too close to other areas. Make it smaller or move it further away.'),
         // isNotInsideBoundaries(groups.highprio, 2, 'Outside placement areas.', 'You are outside the main placement area (yellow border). Make sure you know what you are doing.'),
     ];
 }
@@ -226,6 +227,259 @@ function _isGeoJsonOverlappingLayergroup(
     return overlap;
 }
 
+const layersGraph:{[id: number] : Set<number>;} = {}
+const areaCache = {}
+
+const getLayerPolygon = (layer:L.Layer)=>{
+    //@ts-ignore
+    const layerGeoJSON = layer.toGeoJSON();
+    let layerPolygon;
+    if (layerGeoJSON.type === 'Feature') {
+        layerPolygon = layerGeoJSON.geometry;
+    } else if (layerGeoJSON.type === 'FeatureCollection') {
+        layerPolygon = layerGeoJSON.features[0];
+    } else {
+        // Unsupported geometry type
+        throw new Error("Unsupported geometry type");
+    }
+    return layerPolygon
+}
+
+const getOverlappingLayerIds  = (layer:L.Layer, layerGroup:any):Set<number> => {
+    const overlappingLayersIDs =  new Set<number>();
+
+
+
+    //@ts-ignore
+    let buffer = Turf.buffer(layer.toGeoJSON(), FIRE_BUFFER_IN_METER, { units: 'meters' }) as Turf.helpers.FeatureCollection<Turf.helpers.Polygon>;
+
+    layerGroup.eachLayer((otherLayer) => {
+        // check area is cached for each layer
+        if(!(otherLayer._leaflet_id in areaCache)){
+
+        }
+        if (!_compareLayers(layer, otherLayer))
+        {
+            
+            const otherLayerPolygon = getLayerPolygon(otherLayer)
+
+            //@ts-ignore
+            if (Turf.booleanOverlap(buffer.features[0], otherLayerPolygon)) { //&& !checkedOverlappingLayers.has(otherLayer._leaflet_id)
+                overlappingLayersIDs.add(otherLayer._leaflet_id)
+            }
+        }
+        
+    });
+
+    return overlappingLayersIDs;
+}
+
+const deleteLayerFromCache = (layerID:number)=>{
+    delete areaCache[layerID]
+    delete layersGraph[layerID]
+    for (let id of Object.keys(layersGraph)){
+        layersGraph[id].delete(layerID)
+    }
+}
+
+
+
+const deleteFromAreaCache  = (layerGroup:any) => {
+
+    // delete 
+    for(let layerID of Object.keys(layersGraph)){
+     
+        if (!layerGroup.getLayer(layerID)){
+            console.log("DELETING")
+            deleteLayerFromCache(Number(layerID));
+            
+        }
+    }
+}
+
+let hasRunOnce = false;
+const runOneTimeUpdateGraph = (layerGroup:any)=>{
+    layerGroup.eachLayer(function(layer){ 
+        const overlappingLayersIDs: Set<number>= getOverlappingLayerIds(layer,layerGroup) //leaflet_ids of overlapping layers
+        print(layer,null,"ovrelapping layers" + Array.from(overlappingLayersIDs),null)
+        updateLayerGraph(layer._leaflet_id,overlappingLayersIDs,false)
+    });
+    //console.log('Map has', i, 'layers. and tinier: ', tiny);
+
+    
+}
+const updateLayerGraph = (layerID:number,connLayersIDs:Set<number>,del:any)=>{
+
+    if (!(layerID in layersGraph)){
+        layersGraph[layerID] = new Set<number>();
+    }
+    let prevConnLayersIDs = layersGraph[layerID]; // previously connected layers
+
+    const idsToDelete:Set<number> = new Set<number>();
+    const idsToCreate:Set<number> = new Set<number>();
+    // Using Set.difference is easier but apparently not supported in all browsers
+
+   
+    //@ts-ignore
+    for(let id of prevConnLayersIDs){
+        if (!(connLayersIDs.has(id))){
+            idsToDelete.add(id)
+        }
+    }
+    //@ts-ignore
+    for(let id of connLayersIDs){
+        if (!(prevConnLayersIDs.has(id))){
+            idsToCreate.add(id)
+        }
+    }
+ 
+    // go through all layers that previously was connected to current layer and remove current layer
+    
+    if (del){
+        console.log("prevconn ", Array.from(prevConnLayersIDs)," for ", layerID)
+        console.log("thisconn ", Array.from(connLayersIDs)," for ", layerID)
+        console.log("deleting ", Array.from(idsToDelete)," for ", layerID)
+        console.log("deleting ", Array.from(idsToDelete)," for ", layerID)
+        //@ts-ignore
+    for (let id of idsToDelete){
+        layersGraph[id].delete(layerID)
+        layersGraph[layerID].delete(Number(id))
+    }
+    console.log("creating ", Array.from(idsToCreate)," for ", layerID)
+    }   
+    //@ts-ignore
+    for (let id of idsToCreate){
+        if (!(id in layersGraph)){
+            layersGraph[id] = new Set<number>();
+        }
+        layersGraph[id].add(layerID)
+        layersGraph[layerID].add(Number(id))
+    }
+    let k=""
+    Object.keys(layersGraph).forEach((x)=>{k+=` ${x},`})
+    //console.log(k)
+    
+}
+
+const getAreaFromCache = (layerID:number,layerGroup: L.LayerGroup):number =>{
+    // returns cached area and creates cachedarea if does not exist
+
+    if(!(layerID in areaCache)){
+        
+        let layer = layerGroup.getLayer(layerID)
+        if(layer){
+            //@ts-ignore
+            areaCache[layerID] = Turf.area(layer.toGeoJSON())
+        }
+        else{
+            throw new Error("Layer not found")
+        }
+    }
+    return areaCache[layerID]
+}
+function _recursiveGetTotalArea(layerID: number, layerGroup: L.LayerGroup, checkedLayerIDs: Set<number>): number {
+    //@ts-ignore
+    if (checkedLayerIDs.has(layerID))
+    {
+        return 0;
+    }
+    else
+    {
+        //@ts-ignore
+        checkedLayerIDs.add(layerID);
+    }
+    
+    //@ts-ignore
+    let totalArea = getAreaFromCache(layerID,layerGroup)
+    print(null,layerID,`Layers to check:  ${Array.from(layersGraph[layerID])} `,layerGroup)
+    //@ts-ignore
+    for (let otherLayerID:number of layersGraph[layerID] ){
+        
+        totalArea += _recursiveGetTotalArea(otherLayerID,layerGroup,checkedLayerIDs);
+        print(null,layerID,`added total area ${totalArea} for layerID ${layerID} and othrelayerID ${otherLayerID}`,layerGroup);
+    }
+    print(null,layerID,`returning total area ${totalArea} for layerID ${layerID}`,layerGroup);
+    return totalArea;
+}
+
+const print = (layer:any,layerID:any,text:any,layerGroup:any)=>{
+ return;
+    if (layer === null){
+        layer = layerGroup.getLayer(layerID)
+    }
+    const desc = layer._layers[Object.keys(layer._layers)[0]].feature.properties.description
+    const name = layer._layers[Object.keys(layer._layers)[0]].feature.properties.name
+    
+    if (name == "Tinier Camp"){
+        console.log(`${name} : ${text}`)
+    }
+    
+    if (desc == "test"){
+        console.log(`${layer._leaflet_id} : ${text}`)
+    }
+}
+let pik = 0
+const logg = (logTrue,text)=>{
+if (logTrue ) console.log(text)
+}
+const fastOverlap = (layerGroup: any, severity: Rule["_severity"], shortMsg: string, message: string) =>
+    new Rule(severity, shortMsg, message, (entity) => {
+        if(!hasRunOnce){
+            hasRunOnce=true;
+            //runOneTimeUpdateGraph(layerGroup);
+        }
+        pik++
+        //console.log("pik called ", pik, " times")
+        
+        const layer = entity.layer
+        //@ts-ignore
+        const name = layer._layers[Object.keys(layer._layers)[0]].feature.properties.name
+        let logTrue = name === "Tinier Camp"
+  
+        //@ts-ignore
+        const layerGeoJSON = layer.toGeoJSON();
+        //@ts-ignore
+        const layerID:number = layer._leaflet_id;
+        //console.log(layer)
+        //@ts-ignore
+        //print(null,layerID,`added total area ${totalArea} for layerID ${layerID} and othrelayerID ${otherLayerID}`,layerGroup);
+        print(null,layerID,"fastoverlap",layerGroup)
+        //console.log("running fast overlap for "+layerID)
+        deleteFromAreaCache(layerGroup)
+        //console.log(Object.keys(areaCache).length)
+        let i = 0;
+        let tiny = 0
+        layerGroup.eachLayer(function(x){ 
+            i += 1; 
+            //@ts-ignore
+            //console.log(x)
+            const name = x._layers[Object.keys(x._layers)[0]].feature.properties.name
+            if (name == "Tinier Camp"){
+                tiny++;
+            }
+        });
+        //console.log('Map has', i, 'layers. and tinier: ', tiny);
+
+        const overlappingLayersIDs: Set<number>= getOverlappingLayerIds(layer,layerGroup) //leaflet_ids of overlapping layers
+        print(layer,null,"ovrelapping layers" + Array.from(overlappingLayersIDs),null)
+        updateLayerGraph(layerID,overlappingLayersIDs,true)
+        print(layer,null,"layergraph" + Array.from(overlappingLayersIDs),null)
+
+        // update area for this layer
+        //areaCache[layerID] = Turf.area(layerGeoJSON);
+        const checkedLayerIDs: Set<number> = new Set<number>();
+        let totalArea = _recursiveGetTotalArea(layerID, layerGroup, checkedLayerIDs);
+        print(layer,null,`found total area ${totalArea}`,null)
+        logg(logTrue,`found total area ${totalArea}`)
+        logg(logTrue,`Using${Array.from(checkedLayerIDs)}`)
+        print(layer,null,`found total area ${totalArea}`,null)
+        //print(layer,null,`area of layer ${getAreaFromCache(layerID,layerGroup)}`,null)
+        if ( totalArea > MAX_CLUSTER_SIZE) {
+            return {triggered: true, shortMessage: `Cluster too big: ${Math.round(totalArea).toString()}m²`};
+        }
+        return {triggered: false};
+    });
+
 const isBufferOverlappingRecursive = (layerGroup: any, severity: Rule["_severity"], shortMsg: string, message: string) =>
     new Rule(severity, shortMsg, message, (entity) => {
         const checkedOverlappingLayers = new Set<string>();
@@ -239,6 +493,10 @@ const isBufferOverlappingRecursive = (layerGroup: any, severity: Rule["_severity
     });
 
 function _getTotalAreaOfOverlappingEntities(layer: L.Layer, layerGroup: L.LayerGroup, checkedOverlappingLayers: Set<string>): number {
+
+    //@ts-ignore
+    console.log(`rule for ${layer._leaflet_id}`)
+   
     //@ts-ignore
     if (checkedOverlappingLayers.has(layer._leaflet_id))
     {

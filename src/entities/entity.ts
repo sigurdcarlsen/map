@@ -174,7 +174,7 @@ export class MapEntity implements EntityDTO {
         this.supressWarnings = geoJson.properties.supressWarnings ?? false;
         
         this.updateBufferedLayer();
-        // this.checkAllRules(); //Probably not needed, better to let the editor choose when to do this as it is not allways wanted.
+        //this.checkAllRules(); //Probably not needed, better to let the editor choose when to do this as it is not allways wanted.
     }
     private GetDefaultLayerStyle(cleancolors: boolean = false): L.PathOptions {
         let colorToSet = this.color;
