@@ -79,7 +79,7 @@ export class MapEntity implements EntityDTO {
     public amplifiedSound: number;
     public color: string;
     public supressWarnings: boolean = false;
-
+    public emoji: string;
     /** Calculated area needed for this map entity from the given information */
     public get calculatedAreaNeeded(): number {
         try {
@@ -153,6 +153,8 @@ export class MapEntity implements EntityDTO {
         const geoJson = JSON.parse(data.geoJson);
         
         this.type = geoJson.geometry.type
+        this.emoji = geoJson.properties.emoji ?? '❤️';
+
         if (this.type == "Polygon"){
         // Create a leaflet layer
         this.layer = new L.GeoJSON(geoJson, {
@@ -163,14 +165,31 @@ export class MapEntity implements EntityDTO {
             style: (/*feature*/) => this.GetDefaultLayerStyle(),
         });
         }else if (this.type == "Point"){
+            console.log("POINT")
+            
+            const iconOptions = {
+                
+                iconAnchor:   [30, 30], // match this to fontsize in css
 
-            this.layer = new L.GeoJSON(geoJson, {
-            pmIgnore: false,
-            interactive: true,
-            bubblingMouseEvents: false,
-            snapIgnore: true,
-            style: (/*feature*/) => this.GetDefaultLayerStyle(),});
-        
+                className: 'doimarker',
+                //runner, medium skin tone, Zero-Width-Joiner, female:
+                html: this.emoji,//'&#x1f3c3;&#x1f3fd;&#x200d;&#x2640;',
+            };
+            var markerOptions = {
+                //@ts-ignore
+                icon: L.divIcon(iconOptions),
+                pmIgnore: true,
+                interactive: true,
+                bubblingMouseEvents: false,
+                snapIgnore: true,
+            };
+            
+            this.layer = L.geoJSON(geoJson, {
+                pointToLayer: function (feature, latlng) {
+                    return new L.Marker(latlng, markerOptions);
+                }
+            });
+
         }else{
             throw new Error("Unkown type for mapentity")
         }
@@ -288,7 +307,7 @@ export class MapEntity implements EntityDTO {
         geoJson.properties.amplifiedSound = this.amplifiedSound;
         geoJson.properties.color = this.color;
         geoJson.properties.supressWarnings = this.supressWarnings;
-
+        geoJson.properties.emoji = this.emoji;
         return geoJson;
     }
 

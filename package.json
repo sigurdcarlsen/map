@@ -33,6 +33,7 @@
         "leaflet.locatecontrol": "^0.76.1",
         "leaflet.path.drag": "^0.0.6",
         "leaflet.polylinemeasure": "^3.0.0",
+        "picmo": "^5.8.5",
         "twemoji": "^14.0.2"
     },
     "devDependencies": {

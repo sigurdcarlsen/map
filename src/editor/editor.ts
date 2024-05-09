@@ -7,7 +7,7 @@ import * as Turf from '@turf/turf';
 import DOMPurify from 'dompurify';
 import 'leaflet.path.drag';
 import 'leaflet-search';
-import twemoji from 'twemoji';
+import { createPicker } from 'picmo';
 
 let NONO = 0;
 /**
@@ -107,7 +107,7 @@ export class Editor {
 
             // Stop any ongoing editing of the previously selected layer
             if (prevEntity) {
-                prevEntity?.layer.pm.disable();
+                prevEntity?.layer.pm?.disable();
                 prevEntity?.layer._layers[prevEntity.layer._leaflet_id - 1].dragging.disable();
             }
 
@@ -115,7 +115,7 @@ export class Editor {
         }
         // Edit the shape of the entity
         if (this._mode == 'editing-shape' && nextEntity) {
-            nextEntity.layer.pm.enable({ editMode: true, snappable: false });
+            nextEntity.layer.pm?.enable({ editMode: true, snappable: false });
             this.setSelected(nextEntity, prevEntity);
             this.setPopup('none');
             return;
@@ -285,6 +285,7 @@ export class Editor {
                 return;
             } else if(entity.type=="Point"){
                 const content = document.createElement('div');
+
                 const entityName = entity.name ? entity.name : 'No name yet';
                 const entityDescription = entity.description
                     ? entity.description
@@ -292,15 +293,6 @@ export class Editor {
                 const entityContactInfo = entity.contactInfo
                     ? entity.contactInfo
                     : 'Please add contact info! Without it, your area might be removed.';
-                const entityPowerNeed =
-                    entity.powerNeed != -1
-                        ? `${entity.powerNeed} Watts`
-                        : 'Please state your power need! Set to 0 if you will not use electricity.';
-                const entitySoundAmp =
-                    entity.amplifiedSound != -1
-                        ? `${entity.amplifiedSound} Watts`
-                        : 'Please set sound amplification! Set to 0 if you wont have speakers.';
-
                 let descriptionSanitized = DOMPurify.sanitize(entityDescription);
                 // URLs starting with http://, https://, or ftp://
                 let replacePattern1 = /(\b(https?|ftp):\/\/[-A-Z0-9+&@#\/%?=~_|!:,.;]*[-A-Z0-9+&@#\/%=~_|])/gim;
@@ -309,7 +301,9 @@ export class Editor {
                     '<a href="$1" target="_blank">$1</a>',
                 );
 
-                content.innerHTML = `<h2 style="margin-bottom: 0">${DOMPurify.sanitize(entityName)}</h2>
+                content.innerHTML = `
+                                <h1 style="text-align:center;">${entity.emoji}</h1>
+                                <h2 style="margin-bottom: 0">${DOMPurify.sanitize(entityName)}</h2>
                                 <p class="scrollable">${descriptionWithLinks}</p>
                                 <p style="font-size:14px; margin-top:0px !important; margin-bottom:0px !important">
                                 <b>Contact:</b> ${DOMPurify.sanitize(entityContactInfo)}   
@@ -341,8 +335,10 @@ export class Editor {
                     };
                     content.appendChild(editInfoButton);
                 }
+                
 
                 this._popup.setContent(content).openOn(this._map);
+                this._popup.update()
                 return;
             }else{
                 throw new Error("unkown type for entity")
@@ -552,8 +548,16 @@ export class Editor {
             this._popup.setContent(content).openOn(this._map);
             return;
         }else if(entity.type == "Point"){
+
+            
             const content = document.createElement('div');
             content.innerHTML = ``;
+
+            const emojiHeader = document.createElement('h1')
+            emojiHeader.style.textAlign = "center"
+            emojiHeader.id="emoji-header"
+            emojiHeader.innerHTML=entity.emoji
+            content.appendChild(emojiHeader)
 
             content.appendChild(document.createElement('label')).innerHTML = 'Name of camp/dream';
 
@@ -599,11 +603,13 @@ export class Editor {
             
             
             content.appendChild(document.createElement('p'));
-
+            
             if (this._isEditMode) {
+
+
                 const saveInfoButton = document.createElement('button');
                 saveInfoButton.innerHTML = 'Ok!';
-                saveInfoButton.style.width = '200px';
+                //saveInfoButton.style.width = '50px';
                 saveInfoButton.onclick = async (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -611,9 +617,30 @@ export class Editor {
                 };
                 content.appendChild(saveInfoButton);
 
+
+                const emojiButton = document.createElement('button');
+                emojiButton.innerHTML = 'Emoji';
+                emojiButton.style.marginLeft = '5px';
+                emojiButton.onclick = async (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    let emojiPicker = document.getElementById("emoji-picker");
+                    console.log(emojiPicker.style.visibility)
+                    if(emojiPicker.style.visibility == "hidden"){
+                        emojiPicker.style.visibility = "visible"
+                    }else{
+                        emojiPicker.style.visibility ="hidden"
+                    }
+                   
+
+                    console.log(document.getElementById("emoji-picker").style.visibility)
+                };
+                content.appendChild(emojiButton);
+                
+
                 const moreButton = document.createElement('button');
                 moreButton.innerHTML = 'More...';
-                moreButton.style.marginRight = '0';
+                moreButton.style.marginLeft = '10px';
                 moreButton.onclick = async (e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -621,6 +648,11 @@ export class Editor {
                 };
                 content.appendChild(moreButton);
             }
+            const emojiPicker = document.createElement('div')
+            emojiPicker.style.borderRadius="0.5em";
+            emojiPicker.innerHTML = '<emoji-picker id="emoji-picker" class="light" style="visibility: hidden; position: absolute; inset: 0px auto auto 0px; transform: translate(-20px, -60px);"></emoji-picker>';
+
+            content.appendChild(emojiPicker)
 
             content.onkeydown = (evt: Event) => {
                 // console.log('onkeydown', evt);
@@ -631,6 +663,21 @@ export class Editor {
             };
 
             this._popup.setContent(content).openOn(this._map);
+            //@ts-ignore
+            document.querySelector('emoji-picker').addEventListener('emoji-click', (event)=>{
+                console.log(entity)
+                //@ts-ignore
+                entity.emoji = event.detail.unicode;
+                document.getElementById("emoji-picker").style.visibility="hidden";
+                //@ts-ignore
+                entity.layer._layers[Object.keys(entity.layer._layers)]._icon.innerHTML=event.detail.unicode
+                //@ts-ignore
+                entity.layer._layers[Object.keys(entity.layer._layers)]._icon.innerText=event.detail.unicode
+                //@ts-ignore
+                console.log(document.getElementById("emoji-header").innerHTML=event.detail.unicode)
+                this.refreshEntity(entity);
+                this.UpdateOnScreenDisplay(entity);
+            });
             return;
         }else{
             throw new Error("unknown type for entity")
@@ -888,7 +935,7 @@ export class Editor {
     private async onLayerDoneEditing(entity: MapEntity) {
         console.log('[Editor]', 'onLayerDoneEditing!', { selected: this._selected });
         // Stop editing
-        entity.layer.pm.disable();
+        entity.layer.pm?.disable();
 
         this.UpdateOnScreenDisplay(null);
 
@@ -929,6 +976,8 @@ export class Editor {
     }
 
     private UpdateOnScreenDisplay(entity: MapEntity | null, customMsg: string = null) {
+        if (entity?.type ==="Point") return; // nothing to show for DOI's
+        console.log(entity)
         if (entity || customMsg) {
             let tooltipText = '';
 
@@ -1017,6 +1066,8 @@ export class Editor {
 
     /** Adds the given map entity as an a editable layer to the map */
     private addEntityToMap(entity: MapEntity, checkRules: boolean = true) {
+
+        if (entity.type ==="Poinit") checkRules = false // no rules for DOI's
         this._currentRevisions[entity.id] = entity;
         // Bind the click-event of the editor to the layer
         entity.layer.on('click', ({ latlng }) => {
@@ -1060,6 +1111,10 @@ export class Editor {
         });
        
         if (entity.type == 'Point') {
+            console.log("POINT")
+            console.log(entity)
+            this._doiLayers.addLayer(entity.layer);
+            /*
             console.log('LOL');
             const size = 1;
             const iconOptions = {
@@ -1093,8 +1148,11 @@ export class Editor {
             console.log(entity)
             this._doiLayers.addLayer(marker);
             //this._doiLayers.addLayer(new L.Marker([ 57.62802093657497, 14.926804304122927],{icon:L.divIcon({ html: emojiImg})}));
+            */
         } else {
+            
             //Instead of adding directly to the map, add the layer and its buffer to the layergroups
+
             //@ts-ignore
             this._placementLayers.addLayer(entity.layer);
             //@ts-ignore
