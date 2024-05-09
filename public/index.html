@@ -105,8 +105,12 @@
                 width: 100px;
             }
 
+            .leaflet-buttons-control-button{
+                visibility:hidden;
+            }
             .leaflet-pm-toolbar .leaflet-pm-icon-polygon 
             {
+                visibility:visible;
                 border-radius: 10px;
                 background-image: none;
                 background-color: rgb(139, 64, 161); 
@@ -116,6 +120,7 @@
                 /* border-radius: 10%; */
                 margin-top: -11px;
                 margin-left: -6px;
+             
                 padding: 10%;
                 height: unset;  
                 text-anchor: middle;
@@ -133,11 +138,48 @@
                 animation-fill-mode: none;
                 animation-play-state: running;   
             }
-            
+            .leaflet-pm-toolbar .leaflet-pm-icon-marker 
+            {
+                visibility:visible;
+                border-radius: 10px;
+                background-image: none;
+                background-color: rgb(53, 141, 152); 
+                color: transparent;
+                border-style: double;
+                width: 100px;
+                /* border-radius: 10%; */
+                margin-top: -1;
+                margin-left: -6px;
+                margin-top: -25px;
+                padding: 10%;
+                height: unset;  
+                text-anchor: middle;
+                font-size: large;
+
+                text-shadow: 2px 2px 3px rgb(0 0 0 / 50%);
+                box-shadow: 3px 5px 5px rgb(0 0 0 / 20%);
+
+                animation-name: borderColorFade;
+                animation-duration: 1s; 
+                animation-timing-function: ease-out; 
+                animation-delay: 0;
+                animation-direction: alternate;
+                animation-iteration-count: infinite;
+                animation-fill-mode: none;
+                animation-play-state: running;   
+            }
             .leaflet-pm-icon-polygon::before 
             {
                 width: 100px;
                 content: "Draw"; /* Add a custom text or icon */
+                font-size: 18px; /* Adjust the font size */
+                font-weight: bold; /* Adjust the font weight */
+                color: white; /* Change the icon color */
+            }
+            .leaflet-pm-icon-marker::before 
+            {
+                width: 100px;
+                content: "Add DOI"; /* Add a custom text or icon */
                 font-size: 18px; /* Adjust the font size */
                 font-weight: bold; /* Adjust the font weight */
                 color: white; /* Change the icon color */

@@ -7,7 +7,10 @@ import * as Turf from '@turf/turf';
 import DOMPurify from 'dompurify';
 import 'leaflet.path.drag';
 import 'leaflet-search';
+import twemoji from 'twemoji'
 
+
+let NONO=0;
 /**
  * The Editor class keeps track of the user status regarding editing and
  * renders the map entities in the repository as editable layers on the map
@@ -39,6 +42,7 @@ export class Editor {
     private _placementBufferLayers: L.LayerGroup<any>;
     private _ghostLayers: L.LayerGroup<any>;
 
+    private _doiLayers:  L.LayerGroup<any>
     private _lastEnityFetch: number;
     private _autoRefreshIntervall: number;
     
@@ -46,6 +50,7 @@ export class Editor {
     private sqmTooltip: L.Tooltip; //The tooltip that shows the areasize of the current layer
     private _nameTooltips: Record<number, L.Marker>;
 
+    
     /** Updates current editor status - blur indicates that the current mode should be redacted */
     private async setMode(nextMode: Editor['_mode'] | 'blur', nextEntity?: MapEntity) {
         const prevMode = this._mode;
@@ -88,6 +93,7 @@ export class Editor {
 
         // Deselect and stop editing
         if (this._mode == 'none') {
+            console.log("LOL")
             this.setSelected(null, prevEntity);
             this.setPopup('none');
             return;
@@ -132,6 +138,8 @@ export class Editor {
     /** Updates the currently selected map entity  */
     private async setSelected(nextEntity: MapEntity | null, prevEntity: MapEntity | null) {
         // When a map entity is unselected, save it to the database if it has changes
+
+        
         if (prevEntity && nextEntity != prevEntity && prevEntity.hasChanges()) {
             await this.onLayerDoneEditing(prevEntity);
         }
@@ -769,11 +777,19 @@ export class Editor {
     }
 
     /** Event handler for when an new layer is created */
-    private async onNewLayerCreated(createEvent: { layer: L.Layer }) {
+    private async onNewLayerCreated(createEvent: {shape:any, layer: L.Layer }) {
         console.log('[Editor]', 'Create event fired', { createEvent });
 
         // Get the newly created layer as GeoJson
-        const { layer } = createEvent;
+        const { layer,shape } = createEvent;
+        if (shape == "Marker"){
+            console.log('[Editor]', 'Marker created', { createEvent });
+            //@ts-ignore
+            const geoJson = layer.toGeoJSON();
+            console.log(geoJson)
+            return
+        }
+        console.log('[Editor]', 'Layer created', { createEvent });
         //@ts-ignore
         const geoJson = layer.toGeoJSON();
 
@@ -816,8 +832,10 @@ export class Editor {
         return marker;
     }
 
+    
     /** Adds the given map entity as an a editable layer to the map */
     private addEntityToMap(entity: MapEntity, checkRules: boolean = true) {
+        
         this._currentRevisions[entity.id] = entity;
         // Bind the click-event of the editor to the layer
         entity.layer.on('click', ({ latlng }) => {
@@ -858,13 +876,36 @@ export class Editor {
             this.refreshEntity(entity); //important that the buffer get updated before the rules are checked
             this.UpdateOnScreenDisplay(entity);
         });
+        console.log(entity.type)
+        if( entity.type == "Point" && NONO==0){
+            NONO++;
+            console.log("LOL")
+            const size = 1;
+            const iconOptions = {
+              iconSize  : [size, size],
+              iconAnchor: [size/2, size + 9], 
+              className : 'doimarker',
+            //runner, medium skin tone, Zero-Width-Joiner, female:
+              html:'&#x1f3c3;&#x1f3fd;&#x200d;&#x2640;'
+            }
+            const markerOptions = {
+              draggable: true,
+              //@ts-ignore
+              icon: L.divIcon(iconOptions)
+            }
 
+            //const emojiImg = twemoji.parse('\u2764\uFE0F', { size: 50 });
+            const marker = L.marker([ 57.62802093657497, 14.926804304122927], markerOptions)
+
+            this._doiLayers.addLayer(marker);
+            //this._doiLayers.addLayer(new L.Marker([ 57.62802093657497, 14.926804304122927],{icon:L.divIcon({ html: emojiImg})}));
+        }else{
         //Instead of adding directly to the map, add the layer and its buffer to the layergroups
         //@ts-ignore
         this._placementLayers.addLayer(entity.layer);
         //@ts-ignore
         this._placementBufferLayers.addLayer(entity.bufferLayer);
-
+        }
         //Set initial opacity of the bufferlayer depending on the zoomlevel (REFACTOR this and how its done in the onZoomEnd event)
         if (this._map.getZoom() < 19) {
             //@ts-ignore
@@ -878,7 +919,6 @@ export class Editor {
         if (entity == null) return;
 
         // Update name tooltip
-        let a: L.Marker = entity.nameMarker;
         let posMarker = entity.nameMarker.getLatLng();
         let posEntity = entity.layer.getBounds().getCenter();
         if ((posEntity.lat != posMarker.lat) || (posEntity.lng != posMarker.lng)) {
@@ -1003,7 +1043,11 @@ export class Editor {
         this._placementLayers = new L.LayerGroup().addTo(map);
         this._placementBufferLayers = new L.LayerGroup().addTo(map);
         this._ghostLayers = new L.LayerGroup().addTo(map);
-
+        this._doiLayers = new L.LayerGroup().addTo(map);
+        //@ts-ignore
+        groups.doi = new L.LayerGroup().addTo(map);
+        //@ts-ignore
+        this._doiLayers.addTo(groups.doi)
         //Place both in the same group so that we can toggle them on and off together on the map
         //@ts-ignore
         groups.placement = new L.LayerGroup().addTo(map);
@@ -1302,10 +1346,12 @@ export class Editor {
 
         this._map.pm.addControls({
             drawPolygon: this._isEditMode,
+            drawMarker: this._isEditMode
         });
-
+        
         //Use changeActionsOfControl to only show the cancel button on the draw polygon toolbar
         this._map.pm.Toolbar.changeActionsOfControl('Polygon', ['cancel']);
+        this._map.pm.Toolbar.changeActionsOfControl('Marker', ['cancel']);
     }
 
     ShowInstructionsScreenAndWait() {

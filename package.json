@@ -32,7 +32,8 @@
         "leaflet-search": "^3.0.9",
         "leaflet.locatecontrol": "^0.76.1",
         "leaflet.path.drag": "^0.0.6",
-        "leaflet.polylinemeasure": "^3.0.0"
+        "leaflet.polylinemeasure": "^3.0.0",
+        "twemoji": "^14.0.2"
     },
     "devDependencies": {
         "@rollup/plugin-commonjs": "^17.0.0",

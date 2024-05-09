@@ -103,7 +103,7 @@ export const createMap = async () => {
     map.groups.parking.addTo(map.groups.mapstuff);
     map.groups.toilet.addTo(map.groups.mapstuff);
     map.groups.bridge.addTo(map.groups.mapstuff);
-
+    map.groups.poi = new L.LayerGroup();
 
     //Initialize the editor (it loads it data at the end)
     const editor = new Editor(map, map.groups);
@@ -163,6 +163,7 @@ export const createMap = async () => {
         Placement: map.groups.placement,
         Names: map.groups.names,
         POI: map.groups.poi,
+        DOI:map.groups.doi,
         // Check_Power: map.groups.power,
         // Check_Sound: map.groups.sound,
         Check_Clean: map.groups.clean,

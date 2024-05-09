@@ -62,9 +62,11 @@ export class MapEntity implements EntityDTO {
     public readonly isDeleted: boolean;
     public readonly deleteReason: string;
     public readonly layer: L.Layer & { pm?: any };
+    public readonly type: string
     public bufferLayer: L.Layer;
     public revisions: Record<number, MapEntity>;
     public nameMarker: L.Marker;
+    
 
     // Information fields
     public name: string;
@@ -149,7 +151,9 @@ export class MapEntity implements EntityDTO {
 
         // Extract the geoJson data from the DTO
         const geoJson = JSON.parse(data.geoJson);
-
+        
+        this.type = geoJson.geometry.type
+        
         // Create a leaflet layer
         this.layer = new L.GeoJSON(geoJson, {
             pmIgnore: false,
@@ -158,7 +162,6 @@ export class MapEntity implements EntityDTO {
             snapIgnore: true,
             style: (/*feature*/) => this.GetDefaultLayerStyle(),
         });
-
         this.revisions = {};
         
         // Extract information fields from the geoJson
@@ -282,3 +285,4 @@ export class MapEntity implements EntityDTO {
         return this._originalGeoJson != this.geoJson;
     }
 }
+
