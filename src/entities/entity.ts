@@ -153,7 +153,7 @@ export class MapEntity implements EntityDTO {
         const geoJson = JSON.parse(data.geoJson);
         
         this.type = geoJson.geometry.type
-        
+        if (this.type == "Polygon"){
         // Create a leaflet layer
         this.layer = new L.GeoJSON(geoJson, {
             pmIgnore: false,
@@ -162,6 +162,18 @@ export class MapEntity implements EntityDTO {
             snapIgnore: true,
             style: (/*feature*/) => this.GetDefaultLayerStyle(),
         });
+        }else if (this.type == "Point"){
+
+            this.layer = new L.GeoJSON(geoJson, {
+            pmIgnore: false,
+            interactive: true,
+            bubblingMouseEvents: false,
+            snapIgnore: true,
+            style: (/*feature*/) => this.GetDefaultLayerStyle(),});
+        
+        }else{
+            throw new Error("Unkown type for mapentity")
+        }
         this.revisions = {};
         
         // Extract information fields from the geoJson
