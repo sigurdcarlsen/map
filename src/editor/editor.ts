@@ -169,7 +169,7 @@ export class Editor {
             this._popup.close();
             return;
         }
-
+        console.log("TIIIIS")
         // Show information popup for the entity
         if (display == 'info') {
             if (entity.type == 'Polygon') {
@@ -1014,6 +1014,20 @@ export class Editor {
             //@ts-ignore
             const geoJson = layer.toGeoJSON();
             console.log(geoJson);
+
+
+            const entityInResponse = await this._repository.createEntity(geoJson);
+            if (entityInResponse) {
+                this.addEntityToMap(entityInResponse);
+                this._map.removeLayer(layer);
+    
+                //@ts-ignore
+                const bounds = entityInResponse.layer.getBounds();
+                const latlng = bounds.getCenter();
+                this._popup.setLatLng(latlng);
+                this.setMode('editing-info', entityInResponse);
+                this.showSavedInfo();
+            }
             return;
         }
         console.log('[Editor]', 'Layer created', { createEvent });
@@ -1066,8 +1080,8 @@ export class Editor {
 
     /** Adds the given map entity as an a editable layer to the map */
     private addEntityToMap(entity: MapEntity, checkRules: boolean = true) {
-
-        if (entity.type ==="Poinit") checkRules = false // no rules for DOI's
+        console.log(entity.type)
+        if (entity.type ==="Point") checkRules = false // no rules for DOI's
         this._currentRevisions[entity.id] = entity;
         // Bind the click-event of the editor to the layer
         entity.layer.on('click', ({ latlng }) => {
