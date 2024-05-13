@@ -156,11 +156,13 @@ export const createMap = async () => {
     map.groups.power = new L.LayerGroup();
     map.groups.sound = new L.LayerGroup();
     map.groups.clean = new L.LayerGroup();
+    map.groups.doi = new L.LayerGroup();
 
     var availableLayers = {
         Placement: map.groups.placement,
         Placement_map: map.groups.mapstuff,
         POI: map.groups.poi,
+        DOI: map.groups.doi,
         Soundguide: map.groups.soundguide,
         Slope: map.groups.slopemap,
         Height: map.groups.heightmap,
